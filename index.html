@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Chấm công</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js"></script>
+<style>
+  :root{
+    --bg:#F6F6F3; --ink:#25282B; --muted:#6C7175; --line:#DEDDD7;
+    --in:#2F5D7C; --out:#7A705F; --fail:#C0402B; --flash:#E8EEF2;
+    --btnIn:#2F5D7C; --btnInText:#FFFFFF; --btnOut:#25282B; --btnOutText:#FFFFFF;
+    --cam:#0B0E10;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#161819; --ink:#E9E7E2; --muted:#9A9EA1; --line:#2B2E30;
+      --in:#86B6D6; --out:#B8AD97; --fail:#E8806B; --flash:#1E2A33;
+      --btnIn:#86B6D6; --btnInText:#10212C; --btnOut:#E9E7E2; --btnOutText:#161819;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#161819; --ink:#E9E7E2; --muted:#9A9EA1; --line:#2B2E30;
+    --in:#86B6D6; --out:#B8AD97; --fail:#E8806B; --flash:#1E2A33;
+    --btnIn:#86B6D6; --btnInText:#10212C; --btnOut:#E9E7E2; --btnOutText:#161819;
+  }
+  html{scroll-padding-top:env(safe-area-inset-top,0px)}
+  *,*::before,*::after{box-sizing:inherit}
+  [hidden]{display:none !important}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Be Vietnam Pro',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    font-size:16px; line-height:1.5; font-weight:400;
+    -webkit-user-select:none; user-select:none;
+  }
+  input{-webkit-user-select:text; user-select:text}
+  button{font-family:inherit}
+
+  /* Thanh trên */
+  .header{
+    position:sticky; top:env(safe-area-inset-top,0px); z-index:5;
+    background:var(--bg); border-bottom:1px solid var(--line);
+  }
+  .header .in{
+    max-width:640px; margin:0 auto; padding:16px 20px;
+    display:flex; justify-content:space-between; align-items:flex-end; gap:12px;
+  }
+  .title{font-size:15px; letter-spacing:.04em; color:var(--muted); padding-bottom:4px}
+  .when{text-align:right}
+  .clock{font-size:36px; font-weight:300; line-height:1; letter-spacing:-0.01em; font-variant-numeric:tabular-nums}
+  .date{margin-top:4px; font-size:13px; color:var(--muted); text-transform:capitalize}
+
+  /* Danh sách */
+  main{max-width:640px; margin:0 auto; padding:8px 20px 150px}
+  .note{color:var(--muted); padding:28px 4px; margin:0}
+  #list{list-style:none; margin:0; padding:0}
+  .row{
+    display:flex; justify-content:space-between; align-items:center; gap:16px;
+    padding:22px 4px; border-bottom:1px solid var(--line);
+  }
+  .name{font-size:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .st{display:flex; align-items:center; gap:8px; font-size:14px; white-space:nowrap; font-variant-numeric:tabular-nums}
+  .st::before{content:""; width:8px; height:8px; border-radius:50%; background:currentColor}
+  .st.in{color:var(--in)}
+  .st.out{color:var(--out)}
+  .st.out::before{background:transparent; box-shadow:inset 0 0 0 1.5px currentColor}
+  .row.flash{animation:flash 1.8s ease-out}
+  @keyframes flash{from{background:var(--flash)} to{background:transparent}}
+  .add{
+    display:block; margin:32px auto 0; width:44px; height:44px; border-radius:50%;
+    border:1px solid var(--line); background:transparent; color:var(--muted);
+    font-size:24px; line-height:1; cursor:pointer;
+  }
+
+  /* Thanh nút dưới */
+  .actions{
+    position:fixed; left:0; right:0; bottom:0; z-index:5;
+    background:var(--bg); border-top:1px solid var(--line);
+    padding:14px 20px calc(14px + env(safe-area-inset-bottom,0px));
+  }
+  .actions .in{max-width:640px; margin:0 auto}
+  .actions .btns{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .actNote{margin:0 0 8px; text-align:center; color:var(--muted); font-size:13px}
+  .big{
+    min-height:56px; border:0; border-radius:6px; cursor:pointer;
+    font-size:17px; font-weight:600; letter-spacing:.01em;
+  }
+  .big.cin{background:var(--btnIn); color:var(--btnInText)}
+  .big.cout{background:var(--btnOut); color:var(--btnOutText)}
+  .big:disabled{opacity:.35; cursor:not-allowed}
+
+  /* Hộp thoại */
+  dialog{
+    border:0; border-radius:10px; padding:0; width:min(480px,calc(100vw - 24px));
+    max-height:calc(100vh - 24px); overflow:auto; background:var(--bg); color:var(--ink);
+  }
+  dialog::backdrop{background:rgba(10,12,14,.55)}
+  .dlg{padding:24px}
+  .dlg h2{margin:0 0 4px; font-size:20px; line-height:1.3; font-weight:600}
+  .hint{margin:0 0 16px; color:var(--muted); font-size:14px}
+  .frame{position:relative; overflow:hidden; border-radius:6px; background:var(--cam); aspect-ratio:4/3; width:100%}
+  .frame video{width:100%; height:100%; object-fit:cover; transform:scaleX(-1); display:block}
+  .guide{
+    position:absolute; left:50%; top:50%; width:46%; height:76%; transform:translate(-50%,-50%);
+    border-radius:50%; border:2px solid rgba(255,255,255,.8);
+    box-shadow:0 0 0 999px rgba(10,12,14,.45); pointer-events:none;
+    animation:pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse{50%{border-color:rgba(255,255,255,.25)}}
+  .ghost,.solid{
+    min-height:48px; border-radius:6px; cursor:pointer; font-size:16px; font-weight:600; width:100%;
+  }
+  .ghost{background:transparent; color:var(--ink); border:1px solid var(--ink)}
+  .solid{background:var(--ink); color:var(--bg); border:0}
+  .quiet{
+    background:none; border:0; color:var(--muted); font-size:15px; cursor:pointer;
+    text-decoration:underline; text-underline-offset:3px; padding:10px; display:block; margin:8px auto 0;
+  }
+  #cancel{margin-top:16px}
+  .two{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+
+  .res{text-align:center; padding:12px 0 6px}
+  .resIcon svg{width:88px; height:88px}
+  .res h2{margin-top:14px; font-size:22px}
+  .res p{margin:6px 0 0; color:var(--muted); font-size:16px; overflow-wrap:anywhere}
+  #resBtns{margin-top:18px}
+  .tick{stroke-dasharray:60; stroke-dashoffset:60; animation:draw .5s .12s ease forwards}
+  @keyframes draw{to{stroke-dashoffset:0}}
+
+  form.reg{display:grid; gap:4px; margin-top:12px}
+  form.reg input{
+    width:100%; padding:14px 2px; border:0; border-bottom:1px solid var(--line); border-radius:0;
+    background:transparent; color:var(--ink); font:inherit;
+  }
+  .regMsg{margin:4px 0 8px; min-height:21px; color:var(--fail); font-size:14px}
+
+  button:focus-visible,input:focus-visible{outline:2px solid var(--in); outline-offset:2px}
+  @media (prefers-reduced-motion: reduce){
+    .guide,.row.flash{animation:none}
+    .tick{animation:none; stroke-dashoffset:0}
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="in">
+    <div class="title">Chấm công</div>
+    <div class="when">
+      <div id="clock" class="clock">--:--</div>
+      <div id="date" class="date">&nbsp;</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <p id="listNote" class="note">Đang tải...</p>
+  <ul id="list"></ul>
+  <button id="openReg" class="add" type="button" aria-label="Đăng ký nhân viên" title="Đăng ký nhân viên">+</button>
+</main>
+
+<div class="actions">
+  <div class="in">
+    <p id="actNote" class="actNote">Đang tải...</p>
+    <div class="btns">
+      <button id="btnIn" class="big cin" disabled>Check in</button>
+      <button id="btnOut" class="big cout" disabled>Check out</button>
+    </div>
+  </div>
+</div>
+
+<!-- Camera + kết quả -->
+<dialog id="scanDlg">
+  <div class="dlg">
+    <div id="camView">
+      <h2 id="camTitle">Check in</h2>
+      <p id="camHint" class="hint"></p>
+      <div class="frame">
+        <video id="v" autoplay muted playsinline></video>
+        <div class="guide"></div>
+      </div>
+      <button id="cancel" class="ghost" type="button">Hủy</button>
+    </div>
+    <div id="resView" hidden>
+      <div id="res" class="res">
+        <div id="resIcon" class="resIcon"></div>
+        <h2 id="resTitle"></h2>
+        <p id="resSub"></p>
+      </div>
+      <div id="resBtns" class="two">
+        <button id="retry" class="solid" type="button">Thử lại</button>
+        <button id="done" class="ghost" type="button">Đóng</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<!-- Đăng ký nhân viên -->
+<dialog id="regDlg">
+  <div class="dlg">
+    <h2>Đăng ký</h2>
+    <form id="regForm" class="reg" autocomplete="off">
+      <input id="pin" type="password" placeholder="Mã PIN quản trị">
+      <input id="rid" placeholder="Mã nhân viên">
+      <input id="rname" placeholder="Họ tên">
+      <p id="regMsg" class="regMsg"></p>
+      <div class="two">
+        <button id="regCancel" class="ghost" type="button">Hủy</button>
+        <button class="solid" type="submit">Mở camera</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<!-- Nhập mã thiết bị (chỉ hỏi lần đầu trên mỗi thiết bị) -->
+<dialog id="tokDlg">
+  <div class="dlg">
+    <h2>Mã thiết bị</h2>
+    <form id="tokForm" class="reg" autocomplete="off">
+      <input id="tokInput" type="password" placeholder="Nhập mã thiết bị">
+      <p id="tokMsg" class="regMsg"></p>
+      <button class="solid" type="submit">Lưu</button>
+    </form>
+  </div>
+</dialog>
+
+<script>
+/* ===================== CẤU HÌNH ===================== */
+// Dán URL web app của Apps Script (dạng https://script.google.com/macros/s/.../exec)
+const API_URL = 'DAN_URL_APPS_SCRIPT_VAO_DAY';
+// Muốn tự host model: tải thư mục model về cùng chỗ với index.html rồi đổi thành 'model/'
+const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model/';
+const THRESHOLD = 0.5;
+const TZ = 'Asia/Ho_Chi_Minh';
+/* ==================================================== */
+
+let employees = [];        // {id, name, desc, status: {type,time} | null}
+let ready = false;
+let stream = null;
+let scanToken = 0;         // đổi số này để hủy các vòng quét đang chạy
+let lastAction = null;
+let autoClose = null;
+
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const errText = e => String((e && e.message) || e).replace(/^Error:\s*/, '');
+
+/* ---------- Mã thiết bị (token) ---------- */
+const TOKEN_KEY = 'chamcong_token';
+let memToken = '';
+const getToken = () => {
+  if (memToken) return memToken;
+  try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; }
+};
+const setToken = t => { memToken = t; try { localStorage.setItem(TOKEN_KEY, t); } catch (e) {} };
+const clearToken = () => { memToken = ''; try { localStorage.removeItem(TOKEN_KEY); } catch (e) {} };
+
+function askToken(msg) {
+  return new Promise(resolve => {
+    $('tokMsg').textContent = msg || '';
+    $('tokInput').value = '';
+    if (!$('tokDlg').open) $('tokDlg').showModal();
+    $('tokForm').onsubmit = ev => {
+      ev.preventDefault();
+      const v = $('tokInput').value.trim();
+      if (!v) return;
+      setToken(v);
+      $('tokDlg').close();
+      resolve();
+    };
+  });
+}
+$('tokDlg').addEventListener('cancel', ev => ev.preventDefault());   // không cho đóng bằng phím Esc
+
+/* ---------- Gọi Apps Script ---------- */
+async function api(action, data = {}) {
+  let res;
+  try {
+    res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },   // tránh preflight CORS
+      body: JSON.stringify({ token: getToken(), action, ...data })
+    });
+  } catch (e) {
+    throw new Error('Không kết nối được máy chủ.');
+  }
+  let j;
+  try { j = await res.json(); }
+  catch (e) { throw new Error('Máy chủ trả dữ liệu không hợp lệ. Kiểm tra quyền truy cập "Bất kỳ ai" của Apps Script.'); }
+  if (!j.ok) {
+    if (j.error === 'UNAUTHORIZED') {
+      clearToken();
+      const err = new Error('Mã thiết bị không đúng. Tải lại trang để nhập lại.');
+      err.code = 'UNAUTHORIZED';
+      throw err;
+    }
+    throw new Error(j.error || 'Lỗi không xác định.');
+  }
+  return j.data;
+}
+
+/* ---------- Giữ màn hình luôn sáng (cho tablet) ---------- */
+async function keepAwake() {
+  try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') keepAwake();
+});
+keepAwake();
+
+/* ---------- Đồng hồ ---------- */
+function tick() {
+  const now = new Date();
+  $('clock').textContent = now.toLocaleTimeString('vi-VN', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false });
+  $('date').textContent = now.toLocaleDateString('vi-VN', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long' });
+}
+setInterval(tick, 1000); tick();
+
+/* ---------- Danh sách ---------- */
+function render(flashId) {
+  const ul = $('list');
+  ul.textContent = '';
+  employees.forEach(e => {
+    const li = document.createElement('li');
+    li.className = 'row' + (e.id === flashId ? ' flash' : '');
+
+    const nm = document.createElement('span');
+    nm.className = 'name'; nm.textContent = e.name;
+    li.appendChild(nm);
+
+    if (e.status) {
+      const st = document.createElement('span');
+      const isIn = e.status.type === 'IN';
+      st.className = 'st ' + (isIn ? 'in' : 'out');
+      st.textContent = (isIn ? 'In ' : 'Out ') + e.status.time.slice(0, 5);
+      li.appendChild(st);
+    }
+    ul.appendChild(li);
+  });
+  $('listNote').hidden = employees.length > 0;
+  if (!employees.length) $('listNote').textContent = 'Chưa có nhân viên.';
+}
+function applyStatuses(map) {
+  employees.forEach(e => e.status = map[e.id] || null);
+  render();
+}
+async function loadData() {
+  const list = await api('getEmployees');
+  employees = list.map(e => ({
+    id: e.id, name: e.name, status: e.status,
+    desc: new Float32Array(JSON.parse(e.desc))
+  }));
+}
+
+/* ---------- Camera ---------- */
+async function startCamera() {
+  stopCamera();
+  stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+  $('v').srcObject = stream;
+}
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  $('v').srcObject = null;
+}
+const cameraReason = () => window.isSecureContext
+  ? 'Không bật được camera. Hãy cho phép camera.'
+  : 'Trang cần chạy bằng HTTPS để dùng camera.';
+
+/* ---------- Hộp thoại quét ---------- */
+function openScan(title, hint) {
+  clearTimeout(autoClose);
+  $('camTitle').textContent = title;
+  $('camHint').textContent = hint;
+  $('camView').hidden = false;
+  $('resView').hidden = true;
+  if (!$('scanDlg').open) $('scanDlg').showModal();
+}
+function closeScan() { if ($('scanDlg').open) $('scanDlg').close(); }
+$('scanDlg').addEventListener('close', () => {
+  scanToken++; clearTimeout(autoClose); stopCamera();
+});
+$('cancel').addEventListener('click', closeScan);
+$('done').addEventListener('click', closeScan);
+$('retry').addEventListener('click', () => lastAction && lastAction());
+
+const ICON_OK = c => `<svg viewBox="0 0 88 88" aria-hidden="true"><circle cx="44" cy="44" r="41" fill="none" stroke="var(--${c})" stroke-width="2.5"/><path class="tick" d="M27 46 L39 58 L62 32" fill="none" stroke="var(--${c})" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const ICON_FAIL = `<svg viewBox="0 0 88 88" aria-hidden="true"><circle cx="44" cy="44" r="41" fill="none" stroke="var(--fail)" stroke-width="2.5"/><path class="tick" d="M30 30 L58 58 M58 30 L30 58" fill="none" stroke="var(--fail)" stroke-width="4" stroke-linecap="round"/></svg>`;
+
+function showResult(r) {      // r = {ok, kind: 'in'|'out', title, sub}
+  stopCamera();
+  $('camView').hidden = true;
+  $('resView').hidden = false;
+  $('res').className = 'res ' + (r.ok ? r.kind : 'fail');
+  $('resIcon').innerHTML = r.ok ? ICON_OK(r.kind) : ICON_FAIL;
+  $('resTitle').textContent = r.title;
+  $('resSub').textContent = r.sub;
+  $('retry').hidden = r.ok;
+  $('resBtns').style.gridTemplateColumns = r.ok ? '1fr' : '1fr 1fr';
+  $('done').className = r.ok ? 'quiet' : 'ghost';
+  $('done').textContent = 'Đóng';
+  clearTimeout(autoClose);
+  if (r.ok) autoClose = setTimeout(closeScan, 2600);
+}
+
+/* ---------- Nhận diện ---------- */
+async function getDescriptor() {
+  const r = await faceapi.detectSingleFace($('v')).withFaceLandmarks().withFaceDescriptor();
+  return r ? r.descriptor : null;
+}
+function matchEmployee(d) {
+  let best = null, bestDist = 9;
+  employees.forEach(e => {
+    const dist = faceapi.euclideanDistance(d, e.desc);
+    if (dist < bestDist) { bestDist = dist; best = e; }
+  });
+  return bestDist <= THRESHOLD ? best : null;
+}
+// Thử nhận diện tối đa 10 giây; cần khớp cùng một người 2 lần liên tiếp mới chấp nhận
+async function recognise(token) {
+  const t0 = Date.now();
+  let seenFace = false, streakId = null, streak = 0;
+  await sleep(700);
+  while (Date.now() - t0 < 10000) {
+    if (token !== scanToken) return { cancelled: true };
+    const d = await getDescriptor();
+    if (d) {
+      seenFace = true;
+      const emp = matchEmployee(d);
+      if (emp) {
+        streak = (emp.id === streakId) ? streak + 1 : 1;
+        streakId = emp.id;
+        if (streak >= 2) return { emp };
+      } else { streak = 0; streakId = null; }
+    }
+    await sleep(350);
+  }
+  return { error: seenFace ? 'unknown' : 'noface' };
+}
+const REASON = {
+  noface: 'Không thấy khuôn mặt.',
+  unknown: 'Không nhận ra khuôn mặt.'
+};
+
+/* ---------- Check in / Check out ---------- */
+async function doCheck(type) {
+  const label = type === 'IN' ? 'Check in' : 'Check out';
+  const token = ++scanToken;
+  lastAction = () => doCheck(type);
+  openScan(label, 'Nhìn thẳng vào camera.');
+
+  try {
+    await startCamera();
+    if (token !== scanToken) return stopCamera();
+  } catch (e) {
+    return showResult({ ok: false, title: label + ' thất bại', sub: cameraReason() });
+  }
+
+  try {
+    const res = await recognise(token);
+    if (res.cancelled || token !== scanToken) return;
+    if (res.error) return showResult({ ok: false, title: label + ' thất bại', sub: REASON[res.error] });
+
+    const r = await api('logCheck', { id: res.emp.id, type });
+    if (token !== scanToken) return;
+    handleLog(res.emp, type, label, r);
+  } catch (e) {
+    showResult({ ok: false, title: label + ' thất bại', sub: errText(e) });
+  }
+}
+
+function handleLog(emp, type, label, r) {
+  const verb = type === 'IN' ? 'check in' : 'check out';
+  const fail = sub => showResult({ ok: false, title: label + ' thất bại', sub });
+  if (r.status === 'OK') {
+    const e = employees.find(x => x.id === emp.id);
+    if (e) e.status = { type, time: r.time };
+    render(emp.id);
+    return showResult({ ok: true, kind: type === 'IN' ? 'in' : 'out', title: label + ' thành công', sub: emp.name + ' · ' + r.time });
+  }
+  if (r.status === 'SAME')    return fail(`${emp.name} đã ${verb} lúc ${r.time}.`);
+  if (r.status === 'NO_IN')   return fail(`${emp.name} chưa check in hôm nay.`);
+  if (r.status === 'UNKNOWN') return fail('Nhân viên không tồn tại trong danh sách.');
+  fail('Không ghi nhận được.');
+}
+
+$('btnIn').addEventListener('click', () => doCheck('IN'));
+$('btnOut').addEventListener('click', () => doCheck('OUT'));
+
+/* ---------- Đăng ký nhân viên ---------- */
+$('openReg').addEventListener('click', () => {
+  $('regMsg').textContent = '';
+  $('regDlg').showModal();
+});
+$('regCancel').addEventListener('click', () => $('regDlg').close());
+$('regForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const id = $('rid').value.trim(), name = $('rname').value.trim(), pin = $('pin').value;
+  const say = t => $('regMsg').textContent = t;
+  if (!id || !name || !pin) return say('Nhập đủ thông tin.');
+  if (employees.some(e => e.id === id)) return say('Mã nhân viên đã tồn tại.');
+  try {
+    const ok = await api('checkPin', { pin });
+    if (!ok) return say('Sai mã PIN.');
+  } catch (e) { return say(errText(e)); }
+  $('regDlg').close();
+  doRegister(id, name, pin);
+});
+
+async function captureSamples(token) {
+  const samples = [], t0 = Date.now();
+  await sleep(700);
+  while (samples.length < 3 && Date.now() - t0 < 15000) {
+    if (token !== scanToken) return null;
+    const d = await getDescriptor();
+    if (d) {
+      samples.push(d);
+      $('camHint').textContent = `Đã chụp ${samples.length}/3`;
+      await sleep(500);
+    } else await sleep(300);
+  }
+  return samples;
+}
+
+async function doRegister(id, name, pin) {
+  const token = ++scanToken;
+  lastAction = () => doRegister(id, name, pin);
+  openScan('Đăng ký', 'Nhìn thẳng, giữ yên mặt.');
+
+  try {
+    await startCamera();
+    if (token !== scanToken) return stopCamera();
+  } catch (e) {
+    return showResult({ ok: false, title: 'Đăng ký thất bại', sub: cameraReason() });
+  }
+
+  try {
+    const samples = await captureSamples(token);
+    if (samples === null || token !== scanToken) return;
+    if (samples.length < 3) return showResult({ ok: false, title: 'Đăng ký thất bại', sub: REASON.noface });
+
+    const avg = new Float32Array(128);
+    samples.forEach(s => s.forEach((v, i) => avg[i] += v / 3));
+    await api('registerEmployee', { id, name, descJson: JSON.stringify(Array.from(avg)), pin });
+    employees.push({ id, name, desc: avg, status: null });
+
+    $('regForm').reset();
+    render(id);
+    showResult({ ok: true, kind: 'in', title: 'Đã đăng ký', sub: name });
+  } catch (e) {
+    showResult({ ok: false, title: 'Đăng ký thất bại', sub: errText(e) });
+  }
+}
+
+/* ---------- Khởi động ---------- */
+async function init() {
+  if (!API_URL || API_URL.indexOf('DAN_URL') === 0) {
+    throw new Error('Chưa điền API_URL trong index.html.');
+  }
+
+  let msg = '';
+  for (;;) {
+    if (!getToken()) await askToken(msg);
+    try { await loadData(); break; }
+    catch (e) {
+      if (e.code === 'UNAUTHORIZED') { msg = 'Mã thiết bị không đúng.'; continue; }
+      throw e;
+    }
+  }
+  render();
+
+  await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+  await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+  await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+  ready = true;
+
+  $('btnIn').disabled = false;
+  $('btnOut').disabled = false;
+  $('actNote').hidden = true;
+
+  // Mỗi 60 giây cập nhật trạng thái; mỗi 10 phút tải lại cả danh sách (nhận người mới đăng ký ở thiết bị khác)
+  let n = 0;
+  setInterval(async () => {
+    if (!ready || $('scanDlg').open || $('regDlg').open || $('tokDlg').open) return;
+    try {
+      n++;
+      if (n % 10 === 0) { await loadData(); render(); }
+      else applyStatuses(await api('getStatuses'));
+    } catch (e) {}
+  }, 60000);
+}
+init().catch(e => {
+  $('listNote').hidden = false;
+  $('listNote').textContent = 'Không tải được dữ liệu: ' + errText(e);
+  $('actNote').textContent = 'Tải lại trang để thử lại.';
+});
+</script>
+</body>
+</html>
